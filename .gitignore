@@ -1,0 +1,11 @@
+.DS_Store
+.venv/
+.venv-old/
+__pycache__/
+*.py[cod]
+*.p12
+*.pfx
+assets/presets/
+presets/
+output/
+tmp/
