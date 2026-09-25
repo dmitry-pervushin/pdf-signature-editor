@@ -38,10 +38,16 @@ function renderItems(){
       const img=document.createElement('img');img.src=p.url;img.alt='';el.append(img);
       if(p.id===state.selected){const handle=document.createElement('div');handle.className='handle';handle.addEventListener('pointerdown',event=>startDrag(event,p,'resize'));el.append(handle);}
     }else{
-      el.textContent=p.text;
+      const content=document.createElement('span');content.className='text-content';content.textContent=p.text;el.append(content);
       el.style.fontSize=`${p.font_size*displayScale()}px`;
       el.style.lineHeight=`${p.height*displayScale()}px`;
     }
+    const remove=document.createElement('button');
+    remove.type='button';remove.className='delete-handle';remove.textContent='×';
+    remove.title='Удалить элемент';remove.setAttribute('aria-label','Удалить элемент');
+    remove.addEventListener('pointerdown',event=>event.stopPropagation());
+    remove.addEventListener('click',event=>{event.stopPropagation();deletePlacement(p.id);});
+    el.append(remove);
     el.addEventListener('pointerdown',event=>startDrag(event,p,'move'));
     layer.append(el);
   }
@@ -98,6 +104,12 @@ function addText(){
   const s=currentSize(),width=Math.min(s.width,Math.max(font*2,value.length*font*.55)),height=font*1.35;
   const p={id:++state.nextPlacementId,kind:'text',page_index:state.pageIndex,x:(s.width-width)/2,y:(s.height-height)/2,width,height,text:value,font_size:font};
   state.placements.push(p);state.selected=p.id;renderItems();status('Текст добавлен.');
+}
+function deletePlacement(id){
+  if(id===null||!state.placements.some(p=>p.id===id))return;
+  state.placements=state.placements.filter(p=>p.id!==id);
+  if(state.selected===id)state.selected=null;
+  renderItems();status('Элемент удалён.');
 }
 function startDrag(event,p,mode){
   event.preventDefault();event.stopPropagation();state.selected=p.id;renderItems();
@@ -162,7 +174,13 @@ function initialize(){
   $('text-input').addEventListener('keydown',e=>{if(e.key==='Enter')addText();});
   $('font-size').addEventListener('change',()=>{const p=state.placements.find(p=>p.id===state.selected);if(!p||p.kind!=='text')return;const size=Number($('font-size').value);if(size<6||size>96)return;const s=currentSize();p.font_size=size;p.width=Math.min(s.width,Math.max(size*2,p.text.length*size*.55));p.height=size*1.35;p.x=clamp(p.x,0,s.width-p.width);p.y=clamp(p.y,0,s.height-p.height);renderItems();});
   $('item-width').addEventListener('change',()=>{const p=state.placements.find(p=>p.id===state.selected);if(!p||p.kind!=='image')return;const requested=Number($('item-width').value),s=currentSize();if(!Number.isFinite(requested)||requested<=0)return;p.width=clamp(requested,1,Math.min(s.width-p.x,(s.height-p.y)/p.aspect));p.height=p.width*p.aspect;renderItems();});
-  $('delete-item').addEventListener('click',()=>{state.placements=state.placements.filter(p=>p.id!==state.selected);state.selected=null;renderItems();});
+  $('delete-item').addEventListener('click',()=>deletePlacement(state.selected));
+  document.addEventListener('keydown',event=>{
+    if(!['Delete','Backspace'].includes(event.key)||state.selected===null)return;
+    const target=event.target;
+    if(target instanceof HTMLElement&&(target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(target.tagName)))return;
+    event.preventDefault();deletePlacement(state.selected);
+  });
   $('clear-page').addEventListener('click',()=>{if(!state.documentId)return;state.placements=state.placements.filter(p=>p.page_index!==state.pageIndex);state.selected=null;renderItems();});
   $('prev-page').addEventListener('click',()=>{if(state.pageIndex>0){state.pageIndex--;state.selected=null;showPage();}});
   $('next-page').addEventListener('click',()=>{if(state.pageIndex<state.pages.length-1){state.pageIndex++;state.selected=null;showPage();}});
