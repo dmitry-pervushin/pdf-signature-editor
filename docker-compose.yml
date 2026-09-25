@@ -1,0 +1,12 @@
+services:
+  pdf-signature-editor:
+    build: .
+    container_name: pdf-signature-editor
+    ports:
+      - "8057:8057"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=512m,uid=10001,gid=10001
+    security_opt:
+      - no-new-privileges:true

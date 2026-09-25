@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF Signature Editor</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-icon">✍</span><span>PDF Signature Editor</span></div>
+    <label class="button primary" for="pdf-file">Открыть PDF</label>
+    <input id="pdf-file" type="file" accept="application/pdf,.pdf" hidden>
+  </header>
+  <main class="layout">
+    <aside class="sidebar">
+      <section>
+        <h2>Добавить на страницу</h2>
+        <p class="hint">Выберите изображение при первом нажатии. Оно сохранится только в этом браузере.</p>
+        <div class="preset-list">
+          <button type="button" class="preset" data-preset="signature"><span>✒</span> Подпись <small>PNG / JPG</small></button>
+          <button type="button" class="preset" data-preset="initials"><span>АБ</span> Инициалы <small>PNG / JPG</small></button>
+          <button type="button" class="preset" data-preset="approval"><span>✓</span> Lu et approuvé <small>PNG / JPG</small></button>
+        </div>
+        <input id="preset-file" type="file" accept="image/png,image/jpeg" hidden>
+        <button id="replace-preset" class="text-button" type="button">Заменить изображение выбранного пресета</button>
+      </section>
+      <section>
+        <h2>Текст</h2>
+        <label for="text-input">Текст на странице</label>
+        <input id="text-input" type="text" maxlength="500" placeholder="Например, Lu et approuvé">
+        <div class="row"><label for="font-size">Размер, пт</label><input id="font-size" type="number" min="6" max="96" value="16"></div>
+        <button id="add-text" class="button secondary full" type="button">Добавить текст</button>
+      </section>
+      <section>
+        <h2>Выбранный элемент</h2>
+        <div class="row"><label for="item-width">Ширина, пт</label><input id="item-width" type="number" min="1" step="1" disabled></div>
+        <button id="delete-item" class="button quiet full" type="button" disabled>Удалить элемент</button>
+        <button id="clear-page" class="text-button" type="button">Очистить страницу</button>
+      </section>
+      <section>
+        <h2>Цифровая подпись</h2>
+        <label class="check"><input id="sign-enabled" type="checkbox"> Подписать сертификатом .p12 / .pfx</label>
+        <label for="certificate-file">Файл сертификата</label>
+        <input id="certificate-file" type="file" accept=".p12,.pfx,application/x-pkcs12">
+        <label for="certificate-password">Пароль сертификата</label>
+        <input id="certificate-password" type="password" autocomplete="off">
+        <button id="create-certificate" class="text-button" type="button">Создать личный сертификат…</button>
+      </section>
+    </aside>
+    <section class="workspace">
+      <div class="toolbar">
+        <div class="pager"><button id="prev-page" type="button" aria-label="Предыдущая страница" disabled>‹</button><span id="page-label">Нет документа</span><button id="next-page" type="button" aria-label="Следующая страница" disabled>›</button></div>
+        <button id="download" class="button primary" type="button" disabled>Скачать PDF</button>
+      </div>
+      <div id="canvas-area" class="canvas-area">
+        <div id="empty-state" class="empty-state"><div class="empty-icon">PDF</div><h1>Откройте документ</h1><p>Добавьте подпись, инициалы или текст, затем скачайте новый PDF.</p><label class="button primary" for="pdf-file">Выбрать PDF</label></div>
+        <div id="page" class="page" hidden><img id="page-image" alt="Страница PDF"><div id="items" class="items"></div></div>
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite">Документ обрабатывается в локальной сети.</div>
+    </section>
+  </main>
+  <dialog id="certificate-dialog">
+    <form id="certificate-form" method="dialog">
+      <h2>Создать личный сертификат</h2>
+      <p class="hint">Сохраните файл .p12 в надёжном месте. Самоподписанный сертификат подтверждает целостность PDF, но не личность владельца для сторонних программ.</p>
+      <label for="cert-name">Имя</label><input id="cert-name" required autocomplete="name">
+      <label for="cert-email">Email (необязательно)</label><input id="cert-email" type="email" autocomplete="email">
+      <label for="cert-password">Пароль</label><input id="cert-password" type="password" required autocomplete="new-password">
+      <div class="dialog-actions"><button id="cancel-certificate" class="button quiet" type="button">Отмена</button><button class="button primary" type="submit">Создать и скачать</button></div>
+    </form>
+  </dialog>
+</body>
+</html>

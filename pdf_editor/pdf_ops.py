@@ -145,6 +145,8 @@ def export_pdf(
 
         writer = PdfWriter()
         for page_index, page in enumerate(reader.pages):
+            writer.add_page(page)
+            page = writer.pages[-1]
             # Turn /Rotate into page content so GUI coordinates always match
             # the visual top-left orientation shown by Poppler.
             if page.rotation:
@@ -157,8 +159,6 @@ def export_pdf(
                     _build_overlay(width, height, page_placements)
                 ).pages[0]
                 page.merge_page(overlay)
-            writer.add_page(page)
-
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open("wb") as output:
             writer.write(output)
