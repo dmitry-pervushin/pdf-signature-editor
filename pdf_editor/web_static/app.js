@@ -1,7 +1,7 @@
 const $ = id => document.getElementById(id);
-const state = {documentId:null, pages:[], pageIndex:0, placements:[], selected:null, presets:{}, assetIds:{}, fileName:'document.pdf', pendingPreset:null, certificate:null};
+const state = {documentId:null, pages:[], pageIndex:0, placements:[], selected:null, nextPlacementId:0, presets:{}, assetIds:{}, fileName:'document.pdf', pendingPreset:null, certificate:null};
 const widths = {signature:160, initials:75, approval:145};
-const presetNames = {signature:'Подпись', initials:'Инициалы', approval:'Lu et approuvé'};
+const presetMessages = {signature:'Подпись добавлена', initials:'Инициалы добавлены', approval:'Lu et approuvé добавлен'};
 
 function status(message, error=false){ $('status').textContent=message; $('status').classList.toggle('error',error); }
 async function api(url, options={}){
@@ -86,8 +86,8 @@ async function addPreset(key){
     const assetId=await uploadPreset(key);
     const preset=state.presets[key],s=currentSize();
     const width=Math.min(widths[key],s.width*.35),height=width*preset.height/preset.width;
-    const p={id:crypto.randomUUID(),kind:'image',page_index:state.pageIndex,x:(s.width-width)/2,y:(s.height-height)/2,width,height,asset_id:assetId,url:preset.dataUrl,aspect:preset.height/preset.width};
-    state.placements.push(p);state.selected=p.id;renderItems();status(`${presetNames[key]} добавлены на страницу.`);
+    const p={id:++state.nextPlacementId,kind:'image',page_index:state.pageIndex,x:(s.width-width)/2,y:(s.height-height)/2,width,height,asset_id:assetId,url:preset.dataUrl,aspect:preset.height/preset.width};
+    state.placements.push(p);state.selected=p.id;renderItems();status(`${presetMessages[key]} на страницу.`);
   }catch(error){fail(error);}
 }
 function addText(){
@@ -96,7 +96,7 @@ function addText(){
   if(!value){status('Введите текст.',true);return;}
   if(!Number.isFinite(font)||font<6||font>96){status('Размер шрифта: от 6 до 96 пт.',true);return;}
   const s=currentSize(),width=Math.min(s.width,Math.max(font*2,value.length*font*.55)),height=font*1.35;
-  const p={id:crypto.randomUUID(),kind:'text',page_index:state.pageIndex,x:(s.width-width)/2,y:(s.height-height)/2,width,height,text:value,font_size:font};
+  const p={id:++state.nextPlacementId,kind:'text',page_index:state.pageIndex,x:(s.width-width)/2,y:(s.height-height)/2,width,height,text:value,font_size:font};
   state.placements.push(p);state.selected=p.id;renderItems();status('Текст добавлен.');
 }
 function startDrag(event,p,mode){
