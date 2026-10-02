@@ -16,6 +16,7 @@ from .digital_signing import (
 )
 from .i18n import tr as _
 from .model import Placement, ViewTransform, size_from_bottom_right
+from .presets import load_preset_library, save_preset_library
 from .pdf_ops import (
     PdfEditorError,
     export_pdf,
@@ -65,13 +66,14 @@ class PdfSignatureEditor(tk.Tk):
         self.page_label = tk.StringVar(value=_("no_document"))
         self.status = tk.StringVar(value=_("start_status"))
         self.certificate_path = self._load_certificate_path()
-        self.preset_paths = self._load_presets()
+        self.preset_library = load_preset_library(self.config_path, _("default_person"))
         self.preset_status = {
             key: tk.StringVar() for key in PRESETS
         }
 
         self._configure_style()
         self._build_ui()
+        self._refresh_person_ui()
         self._refresh_preset_labels()
         self.bind("<Delete>", lambda _event: self.delete_selected())
         self.bind("<BackSpace>", lambda _event: self.delete_selected())
@@ -96,6 +98,7 @@ class PdfSignatureEditor(tk.Tk):
             "Muted.TLabel", background=PANEL, foreground=MUTED, font=("Helvetica", 10)
         )
         style.configure("TButton", font=("Helvetica", 11), padding=(12, 8))
+        style.configure("Small.TButton", font=("Helvetica", 10), padding=(5, 5))
         style.configure(
             "Accent.TButton",
             background=ACCENT,
@@ -144,17 +147,34 @@ class PdfSignatureEditor(tk.Tk):
         body = ttk.Frame(self)
         body.pack(fill="both", expand=True)
 
-        sidebar = ttk.Frame(body, style="Panel.TFrame", padding=18, width=290)
+        sidebar = ttk.Frame(body, style="Panel.TFrame", padding=18, width=320)
         sidebar.pack(side="left", fill="y")
         sidebar.pack_propagate(False)
 
         ttk.Label(sidebar, text=_("graphic_presets"), style="Title.TLabel").pack(
             anchor="w", pady=(0, 14)
         )
+        ttk.Label(sidebar, text=_("who")).pack(anchor="w")
+        self.person_select = ttk.Combobox(sidebar, state="readonly")
+        self.person_select.pack(fill="x", pady=(5, 5))
+        self.person_select.bind("<<ComboboxSelected>>", self._on_person_selected)
+        person_actions = ttk.Frame(sidebar, style="Panel.TFrame")
+        person_actions.pack(fill="x", pady=(0, 12))
+        ttk.Button(person_actions, text=_("person_add"), style="Small.TButton", command=self.add_person).pack(
+            side="left", expand=True, fill="x"
+        )
+        ttk.Button(person_actions, text=_("person_rename"), style="Small.TButton", command=self.rename_person).pack(
+            side="left", expand=True, fill="x", padx=4
+        )
+        ttk.Button(person_actions, text=_("person_remove"), style="Small.TButton", command=self.remove_person).pack(
+            side="left", expand=True, fill="x"
+        )
         ttk.Label(
             sidebar,
             text=_("preset_explanation"),
             style="Muted.TLabel",
+            wraplength=280,
+            justify="left",
         ).pack(anchor="w", pady=(0, 9))
         for key, (label_key, _width) in PRESETS.items():
             row = ttk.Frame(sidebar, style="Panel.TFrame")
@@ -276,25 +296,9 @@ class PdfSignatureEditor(tk.Tk):
                 _("settings_not_saved_detail", error=exc),
             )
 
-    def _load_presets(self) -> dict[str, Path]:
-        try:
-            raw = json.loads(self.config_path.read_text(encoding="utf-8"))
-            return {
-                key: Path(value)
-                for key, value in raw.items()
-                if key in PRESETS and isinstance(value, str) and Path(value).is_file()
-            }
-        except (OSError, ValueError, TypeError):
-            return {}
-
     def _save_presets(self) -> None:
         try:
-            self.config_path.parent.mkdir(parents=True, exist_ok=True)
-            data = {key: str(path) for key, path in self.preset_paths.items()}
-            self.config_path.write_text(
-                json.dumps(data, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
+            save_preset_library(self.config_path, self.preset_library)
         except OSError as exc:
             messagebox.showwarning(
                 _("settings_not_saved"),
@@ -303,11 +307,66 @@ class PdfSignatureEditor(tk.Tk):
 
     def _refresh_preset_labels(self) -> None:
         for key in PRESETS:
-            path = self.preset_paths.get(key)
+            path = self.preset_library.current_person.images.get(key)
             if path and path.is_file():
                 self.preset_status[key].set(path.name)
             else:
                 self.preset_status[key].set(_("image_not_selected"))
+
+    def _refresh_person_ui(self) -> None:
+        self.person_select["values"] = [person.name for person in self.preset_library.people]
+        selected = self.preset_library.current_person
+        self.person_select.current(self.preset_library.people.index(selected))
+
+    def _on_person_selected(self, _event: tk.Event) -> None:
+        index = self.person_select.current()
+        if index < 0:
+            return
+        self.preset_library.selected_person_id = self.preset_library.people[index].id
+        self._save_presets()
+        self._refresh_preset_labels()
+
+    def add_person(self) -> None:
+        name = simpledialog.askstring(_("who"), _("person_name_prompt"), parent=self)
+        if name is None:
+            return
+        try:
+            self.preset_library.add_person(name)
+        except ValueError:
+            messagebox.showwarning(_("who"), _("person_name_invalid"), parent=self)
+            return
+        self._save_presets()
+        self._refresh_person_ui()
+        self._refresh_preset_labels()
+
+    def rename_person(self) -> None:
+        person = self.preset_library.current_person
+        name = simpledialog.askstring(
+            _("who"), _("person_name_prompt"), initialvalue=person.name, parent=self
+        )
+        if name is None:
+            return
+        try:
+            self.preset_library.rename_person(person.id, name)
+        except ValueError:
+            messagebox.showwarning(_("who"), _("person_name_invalid"), parent=self)
+            return
+        self._save_presets()
+        self._refresh_person_ui()
+
+    def remove_person(self) -> None:
+        if len(self.preset_library.people) == 1:
+            messagebox.showinfo(_("who"), _("person_last_required"), parent=self)
+            return
+        person = self.preset_library.current_person
+        if not messagebox.askyesno(
+            _("who"), _("person_remove_confirm", name=person.name), parent=self
+        ):
+            return
+        self.preset_library.remove_person(person.id)
+        self._save_presets()
+        self._refresh_person_ui()
+        self._refresh_preset_labels()
 
     def _choose_image(self, title: str) -> Path | None:
         filename = filedialog.askopenfilename(
@@ -337,13 +396,16 @@ class PdfSignatureEditor(tk.Tk):
         path = self._choose_image(_("choose_image", label=label))
         if not path:
             return
-        self.preset_paths[key] = self._store_preset_image(key, path)
+        self.preset_library.current_person.images[key] = self._store_preset_image(key, path)
         self._save_presets()
         self._refresh_preset_labels()
         self.status.set(_("preset_configured", label=label))
 
     def _store_preset_image(self, key: str, source: Path) -> Path:
-        destination = self.config_path.parent / f"{key}{source.suffix.lower()}"
+        destination = (
+            self.config_path.parent / "presets" / self.preset_library.current_person.id
+            / f"{key}{source.suffix.lower()}"
+        )
         try:
             destination.parent.mkdir(parents=True, exist_ok=True)
             if source.resolve() != destination.resolve():
@@ -514,13 +576,13 @@ class PdfSignatureEditor(tk.Tk):
             return
         label_key, preferred_width = PRESETS[key]
         label = _(label_key)
-        path = self.preset_paths.get(key)
+        path = self.preset_library.current_person.images.get(key)
         if not path or not path.is_file():
             path = self._choose_image(_("choose_image", label=label))
             if not path:
                 return
-            self.preset_paths[key] = self._store_preset_image(key, path)
-            path = self.preset_paths[key]
+            self.preset_library.current_person.images[key] = self._store_preset_image(key, path)
+            path = self.preset_library.current_person.images[key]
             self._save_presets()
             self._refresh_preset_labels()
         self._add_image(path, preferred_width, label)

@@ -67,7 +67,7 @@ def render_page(pdf_path: Path, page_number: int, dpi: int = 130) -> Image.Image
                 capture_output=True,
                 text=True,
                 check=False,
-                timeout=30,
+                timeout=90,
             )
         except subprocess.TimeoutExpired as exc:
             raise PdfEditorError(_("preview_timeout")) from exc
